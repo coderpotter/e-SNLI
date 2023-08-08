@@ -29,11 +29,7 @@ def get_batch(batch, word_vec):
 # output    : dictionary of all words + <s> + </s> + <p>   
 def get_word_dict(sentences):
     # create vocab of words
-    word_index = {}
-    word_index['<p>'] = 0 
-    word_index['</s>'] = 1
-    word_index['<s>'] = 2
-    word_index['<UNK>'] = 3
+    word_index = {'<p>': 0, '</s>': 1, '<s>': 2, '<UNK>': 3}
     i = 3
     for sent in sentences:
         for word in sent.split():
@@ -64,19 +60,18 @@ def build_vocab(sentences, glove_path):
 
 
 def copy_first_k_lines_txt(file, new_file, k):
-    f = open(file)
-    content = f.readlines()
+    with open(file) as f:
+        content = f.readlines()
 
-    g = open(new_file, 'w')
+        g = open(new_file, 'w')
 
-    i = 0
-    for line in content:
-        i += 1
-        if i <= k:
-            g.write(line)
-        else:
-            break
-    f.close()
+        i = 0
+        for line in content:
+            i += 1
+            if i <= k:
+                g.write(line)
+            else:
+                break
     g.close()
 
 

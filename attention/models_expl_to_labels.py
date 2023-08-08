@@ -36,21 +36,19 @@ class BLSTMEncoder(nn.Module):
 		idx_unsort = np.argsort(idx_sort)
 
 		idx_sort = torch.from_numpy(idx_sort).cuda() if self.is_cuda() \
-			else torch.from_numpy(idx_sort)
+				else torch.from_numpy(idx_sort)
 		sent = sent.index_select(1, Variable(idx_sort))
 
 		# Handling padding in Recurrent Networks
 		sent_packed = nn.utils.rnn.pack_padded_sequence(sent, sent_len)
 		self.enc_lstm.flatten_parameters()
 		sent_output = self.enc_lstm(sent_packed)[0]  # seqlen x batch x 2*nhid
-		padding_value = 0.0
-		if self.pool_type == "max":
-			padding_value = -100
+		padding_value = -100 if self.pool_type == "max" else 0.0
 		sent_output = nn.utils.rnn.pad_packed_sequence(sent_output, False, padding_value)[0]
 
 		# Un-sort by length
 		idx_unsort = torch.from_numpy(idx_unsort).cuda() if self.is_cuda() \
-			else torch.from_numpy(idx_unsort)
+				else torch.from_numpy(idx_unsort)
 		sent_output = sent_output.index_select(1, Variable(idx_unsort))
 		sent_len=sent_len[idx_unsort]
 
@@ -63,7 +61,7 @@ class BLSTMEncoder(nn.Module):
 			emb = torch.max(sent_output, 0)[0]
 			if emb.ndimension() == 3:
 				emb = emb.squeeze(0)
-				assert emb.ndimension() == 2, "emb.ndimension()=" + str(emb.ndimension())
+				assert emb.ndimension() == 2, f"emb.ndimension()={str(emb.ndimension())}"
 
 		return emb
 
@@ -115,7 +113,7 @@ class BLSTMEncoder(nn.Module):
 					if word in ['<s>', '</s>']:
 						word_vec[word] = np.fromstring(vec, sep=' ')
 
-				if k > K and all([w in word_vec for w in ['<s>', '</s>']]):
+				if k > K and all(w in word_vec for w in ['<s>', '</s>']):
 					break
 		return word_vec
 
@@ -295,13 +293,10 @@ class ExplToLabelsNet(nn.Module):
 		# expl : ( Variable(T x bs x 300), lens_expl)
 
 		enc_out_expl = self.encoder(expl)
-		out_label = self.classifier(enc_out_expl)
-
-		return out_label
+		return self.classifier(enc_out_expl)
 
 	def encode(self, s1):
-		emb = self.encoder(s1)
-		return emb
+		return self.encoder(s1)
 
 
 

@@ -9,7 +9,6 @@ def remove_file(file):
 		os.remove(file)
 	except Exception as e:
 		print("\nCouldn't remove " + file + " because ", e, "\n")
-		pass
 
 
 def get_dir(file):
@@ -21,7 +20,7 @@ def get_dir(file):
 		if i == 0:
 			directory = f[i]
 		else:
-			directory += "/" + f[i]
+			directory += f"/{f[i]}"
 	return directory, f[-1]
 
 
@@ -31,41 +30,38 @@ def get_dir(file):
 def preproc1_expl(expl_file):
 	tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
-	f = open(expl_file)
-	content = f.readlines()
+	with open(expl_file) as f:
+		content = f.readlines()
 
-	directory, f_name = get_dir(expl_file)
-	preproc_expl_file = os.path.join(directory, "preproc1_" + f_name)
-	remove_file(preproc_expl_file)
-	preproc_expl_f = open(preproc_expl_file, "a")
+		directory, f_name = get_dir(expl_file)
+		preproc_expl_file = os.path.join(directory, f"preproc1_{f_name}")
+		remove_file(preproc_expl_file)
+		preproc_expl_f = open(preproc_expl_file, "a")
 
-	i = 0
-	for expl in content:
-		i += 1
-		expl = expl.decode('ascii', 'ignore')
-		sentences = tokenizer.tokenize(expl)
-		new_expl = ""
-		if len(sentences) != 0:
-			if len(sentences) > 1:
-				for sent in sentences[:-1]:
-					if sent[-1] == '.':
-						sent = sent[:-1] + " ; "
-					elif sent[-3:-1] == '..':
-						sent = sent[-3:-1] + " ; "
-					if new_expl == "":
-						new_expl = sent
-					else:
-						new_expl += " " + sent
-			if new_expl == "":
-				new_expl = sentences[-1]
-			else:
-				new_expl += " " + sentences[-1]
-			new_expl = new_expl.lower()
-		if i > 1:
-			preproc_expl_f.write("\n")
-		preproc_expl_f.write(new_expl)
+		for i, expl in enumerate(content, start=1):
+			expl = expl.decode('ascii', 'ignore')
+			sentences = tokenizer.tokenize(expl)
+			new_expl = ""
+			if len(sentences) != 0:
+				if len(sentences) > 1:
+					for sent in sentences[:-1]:
+						if sent[-1] == '.':
+							sent = f"{sent[:-1]} ; "
+						elif sent[-3:-1] == '..':
+							sent = f"{sent[-3:-1]} ; "
+						if new_expl == "":
+							new_expl = sent
+						else:
+							new_expl += f" {sent}"
+				if new_expl == "":
+					new_expl = sentences[-1]
+				else:
+					new_expl += f" {sentences[-1]}"
+				new_expl = new_expl.lower()
+			if i > 1:
+				preproc_expl_f.write("\n")
+			preproc_expl_f.write(new_expl)
 
-	f.close()
 	preproc_expl_f.close()
 
 
@@ -174,19 +170,14 @@ def replace_infreq(expl_file, word_frequences, k):
 
 # create a file with N empty lines as explanations for MultiNLI, N = number of examples in the MultiNLI set
 def expl_multinli(fname):
-	f = open(fname)
-	content = f.readlines()
+	with open(fname) as f:
+		content = f.readlines()
 
-	gname = "MultiNLI/expl_1.train"
-	if 'dev' in fname:
-		gname = "MultiNLI/expl_1.dev"
-	
-	remove_file(gname)
-	g = open(gname, 'a')
-	for line in content:
-		g.write("\n")
-	g.close()
-	f.close()
+		gname = "MultiNLI/expl_1.dev" if 'dev' in fname else "MultiNLI/expl_1.train"
+		remove_file(gname)
+		with open(gname, 'a') as g:
+			for _ in content:
+				g.write("\n")
 	
 
 def concat_files(list_files, out_file):
@@ -255,40 +246,30 @@ def append_label_expl(label_file, expl_file):
 
 
 def csv_to_txt(csv_file):
-	f = open(csv_file)
-	reader = csv.DictReader(f)
+	with open(csv_file) as f:
+		reader = csv.DictReader(f)
 
-	out_file = "expl_1.train"
-	remove_file(out_file)
-	g = open(out_file, 'a')
+		out_file = "expl_1.train"
+		remove_file(out_file)
+		g = open(out_file, 'a')
 
-	for row in reader:
-		g.write(row['Explanation_1'] + "\n")
+		for row in reader:
+			g.write(row['Explanation_1'] + "\n")
 
-	f.close()
 	g.close()
 
 
 def sentence_lenghts(file):
 	f=open(file, 'r')
-	lengths = []
-	for line in f:
-		lengths.append(len(line.split()))
-
+	lengths = [len(line.split()) for line in f]
 	m = np.mean(lengths)
 	stdev = np.std(lengths)
 	maxim = max(lengths)
 
-	count_within_3stdevs = 0
 	m_3stds = m + 3*stdev
-	for l in lengths:
-		if l <= m_3stds:
-			count_within_3stdevs += 1
-			
+	count_within_3stdevs = sum(1 for l in lengths if l <= m_3stds)
 	print(file, "mean: ", m, "stdev: ", stdev, "max: ", maxim, "count_within_3stdevs: ", count_within_3stdevs, "count_within_3stdevs_%", count_within_3stdevs*100.0 / len(lengths) )
 	return m, stdev, maxim
-
-	f.close()
 
 '''
 sentence_lenghts("eSNLI/expl_to_inp/attention_nips/s1.train")

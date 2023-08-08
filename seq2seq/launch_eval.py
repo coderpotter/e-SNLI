@@ -27,7 +27,7 @@ parser.add_argument("--cudnn_nondeterministic", action='store_false', dest='cudn
 
 eval_params = parser.parse_args()
 
-streamtologger.redirect(target=eval_params.directory + '/log_eval.txt')
+streamtologger.redirect(target=f'{eval_params.directory}/log_eval.txt')
 
 state = torch.load(os.path.join(eval_params.directory, eval_params.state_path))
 model_config = state['config_model']
@@ -74,9 +74,8 @@ eval_sent_embeddings_labels_in_expl.eval_all(esnli_net, criterion_expl, params)
 
 txt_file = 'DONE_eval.txt'
 file = os.path.join(params.current_run_dir, txt_file)
-f = open(file,'w')
-f.write("DONE")
-f.close()
+with open(file,'w') as f:
+    f.write("DONE")
 
 
 

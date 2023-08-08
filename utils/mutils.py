@@ -61,7 +61,7 @@ def get_dir(file):
         if i == 0:
             directory = f[i]
         else:
-            directory += "/" + f[i]
+            directory += f"/{f[i]}"
     return directory
 
 
@@ -74,17 +74,13 @@ def new_file_name(file, prefix):
         if i == 0:
             directory = f[i]
         else:
-            directory += "/" + f[i]
-    new_file = directory + "/" + prefix +"__" + file 
-    return new_file
+            directory += f"/{f[i]}"
+    return f"{directory}/{prefix}__{file}"
 
 
 
 def permute(x, perm):
-    perm_x = []
-    for i in perm:
-        perm_x.append(x[i])
-    return perm_x
+    return [x[i] for i in perm]
     
 
 def bleu_prediction(pred_file, data):
@@ -136,12 +132,11 @@ def remove_file(file):
         os.remove(file)
     except Exception as e:
         print("\n\nCouldn't remove " + file + " because ", e)
-        pass
 
 
 def n_parameters(model):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    return sum([np.prod(p.size()) for p in model_parameters])
+    return sum(np.prod(p.size()) for p in model_parameters)
 
 
 def makedirs(name):
@@ -151,10 +146,7 @@ def makedirs(name):
     try:
         os.makedirs(name)
     except OSError as ex:
-        if ex.errno == errno.EEXIST and os.path.isdir(name):
-            # ignore existing directory
-            pass
-        else:
+        if ex.errno != errno.EEXIST or not os.path.isdir(name):
             # a different error happened
             raise
 
@@ -169,7 +161,7 @@ def get_key_from_val(val, dic_labels):
     for k, v in dic_labels.iteritems():
         if v == val:
             return k
-    raise NameError("invalid value " + str(val))
+    raise NameError(f"invalid value {str(val)}")
 
 
 def get_keys_from_vals(vals, dic_labels):
@@ -196,15 +188,16 @@ def get_sentence_from_indices(dictionary, tensor_indices):
         if i == 0:
             s = get_key_from_val(tensor_indices.data[i], dictionary)
         else:
-            s = s + ' ' + get_key_from_val(tensor_indices.data[i], dictionary)
+            s = f'{s} {get_key_from_val(tensor_indices.data[i], dictionary)}'
     return s
 
 
 def get_bow_expl_from_indices(out_vocab, tensor_indices):
-    s = ''
-    for i in range(len(tensor_indices)):
-        if tensor_indices[i].data[0] >= 0.5:
-            s += ' ' + get_key_from_val(i, out_vocab)
+    s = ''.join(
+        f' {get_key_from_val(i, out_vocab)}'
+        for i in range(len(tensor_indices))
+        if tensor_indices[i].data[0] >= 0.5
+    )
     return s.strip()
 
 
@@ -219,7 +212,9 @@ def bow_correct(pred, tgt):
     sum_row_agree = agree.data.sum(1)
     assert_sizes(sum_row_agree, 1, [pred.size(0)])
     #print "agree", agree
-    assert sum_row_agree.sum() == agree.sum().data[0], str(sum_row_agree.sum()) + " while " + str(agree.sum().data[0])
+    assert (
+        sum_row_agree.sum() == agree.sum().data[0]
+    ), f"{str(sum_row_agree.sum())} while {str(agree.sum().data[0])}"
     return agree.sum().data[0]
 
 
@@ -236,7 +231,9 @@ def bow_correct_per_row(pred, tgt):
     #print "pred", pred
     #print "tgt", tgt
     #print "sum_row_agree", sum_row_agree
-    assert sum_row_agree.sum() == bow_correct(pred, tgt), str(sum_row_agree.sum()) + " while " + str(bow_correct(pred, tgt))
+    assert sum_row_agree.sum() == bow_correct(
+        pred, tgt
+    ), f"{str(sum_row_agree.sum())} while {str(bow_correct(pred, tgt))}"
     return sum_row_agree
 
 
@@ -271,15 +268,21 @@ def bow_precision_recall_fscore_row(pred, tgt):
 
 
 def assert_sizes(t, dims, sizes):
-    assert len(t.size()) == dims, "input dim: " + str(len(t.size())) + " required dim " + str(dims)
+    assert (
+        len(t.size()) == dims
+    ), f"input dim: {len(t.size())} required dim {str(dims)}"
     for i in range(dims):
-        assert t.size(i) == sizes[i], "in size " + str(i) + " given " + str(t.size(i)) + " expected " + str(sizes[i])
+        assert (
+            t.size(i) == sizes[i]
+        ), f"in size {str(i)} given {str(t.size(i))} expected {str(sizes[i])}"
 
 
 def assert_same_dims(x, y):
-    assert len(x.size()) == len(y.size()), str(len(x.size())) + " vs " + str(len(y.size()))
+    assert len(x.size()) == len(y.size()), f"{len(x.size())} vs {len(y.size())}"
     for i in range(len(x.size())):
-        assert x.size(i) == y.size(i), "for dim " + str(i) + " x has " + str(x.size(i)) + " y has " + str(y.size(i))
+        assert x.size(i) == y.size(
+            i
+        ), f"for dim {str(i)} x has {str(x.size(i))} y has {str(y.size(i))}"
 
 
 def get_optimizer(s):
@@ -289,9 +292,9 @@ def get_optimizer(s):
         - "sgd,lr=0.01"
         - "adagrad,lr=0.1,lr_decay=0.05"
     """
+    optim_params = {}
     if "," in s:
         method = s[:s.find(',')]
-        optim_params = {}
         for x in s[s.find(',') + 1:].split(','):
             split = x.split('=')
             assert len(split) == 2
@@ -299,8 +302,6 @@ def get_optimizer(s):
             optim_params[split[0]] = float(split[1])
     else:
         method = s
-        optim_params = {}
-
     if method == 'adadelta':
         optim_fn = optim.Adadelta
     elif method == 'adagrad':
@@ -319,14 +320,15 @@ def get_optimizer(s):
         optim_fn = optim.SGD
         assert 'lr' in optim_params
     else:
-        raise Exception('Unknown optimization method: "%s"' % method)
+        raise Exception(f'Unknown optimization method: "{method}"')
 
     # check that we give good parameters to the optimizer
     expected_args = inspect.getargspec(optim_fn.__init__)[0]
     assert expected_args[:2] == ['self', 'params']
-    if not all(k in expected_args[2:] for k in optim_params.keys()):
-        raise Exception('Unexpected parameters: expected "%s", got "%s"' % (
-            str(expected_args[2:]), str(optim_params.keys())))
+    if any(k not in expected_args[2:] for k in optim_params):
+        raise Exception(
+            f'Unexpected parameters: expected "{str(expected_args[2:])}", got "{str(optim_params.keys())}"'
+        )
 
     return optim_fn, optim_params
 

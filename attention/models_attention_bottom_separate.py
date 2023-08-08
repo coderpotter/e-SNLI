@@ -13,10 +13,7 @@ from mutils import get_keys_from_vals, assert_sizes
 
 
 def array_all_true(arr):
-	for i in arr:
-		if i == False:
-			return False
-	return True
+	return all(i != False for i in arr)
 
 """
 AttentionDecoder for the explanation
