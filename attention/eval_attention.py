@@ -238,63 +238,47 @@ def eval_datasets_without_expl(esnli_net, expl_to_labels_net, which_set, data, w
 
 
 def eval_all(esnli_net, expl_to_labels_net, criterion_expl, params):
-	word_index = params.word_index 
-	word_emb_dim = params.word_emb_dim 
+	word_index = params.word_index
+	word_emb_dim = params.word_emb_dim
 	batch_size = params.eval_batch_size
-	print_every = params.print_every 
+	print_every = params.print_every
 	current_run_dir = params.current_run_dir
 
 	snli_test_no_unk = get_dev_test_original_expl(params.esnli_path, 'test')
 	snli_dev_no_unk = get_dev_test_original_expl(params.esnli_path, 'dev')
-	
+
 	esnli_net.eval()
-	
+
 	# save auxiliary tasks results at each epoch in a csv file
 	dev_csv = os.path.join(current_run_dir, time.strftime("%d:%m") + "_" + time.strftime("%H:%M:%S") + "_" + "artifacts.csv")
 	remove_file(dev_csv)
-	dev_f = open(dev_csv, "a")
-	writer = csv.writer(dev_f)
+	with open(dev_csv, "a") as dev_f:
+		writer = csv.writer(dev_f)
 
-	headers = []
-	headers.append('set')
-	row_dev = ['dev']
-	row_test = ['test']
-	
-	preproc = params.preproc_expl + "_"
-	snli_train = get_train(params.esnli_path, preproc, params.min_freq, params.n_train)
-	snli_dev = get_dev_test_with_expl(params.esnli_path, 'dev', preproc, params.min_freq)
-	snli_test = get_dev_test_with_expl(params.esnli_path, 'test', preproc, params.min_freq)
-	snli_sentences = snli_train['s1'] + snli_train['s2'] + snli_train['expl_1'] + snli_dev['s1'] + snli_dev['s2'] + snli_dev['expl_1'] + snli_dev['expl_2'] + snli_dev['expl_3'] + snli_test['s1'] + snli_test['s2'] + snli_test['expl_1'] + snli_test['expl_2'] + snli_test['expl_3']
-	word_vec = build_vocab(snli_sentences, GLOVE_PATH)
-	for split in ['s1', 's2', 'expl_1', 'expl_2', 'expl_3']:
-		for data_type in ['snli_dev', 'snli_test']:
-			eval(data_type)[split] = np.array([['<s>'] +
-				[word for word in sent.split() if word in word_vec] +
-				['</s>'] for sent in eval(data_type)[split]])
+		preproc = f"{params.preproc_expl}_"
+		snli_train = get_train(params.esnli_path, preproc, params.min_freq, params.n_train)
+		snli_dev = get_dev_test_with_expl(params.esnli_path, 'dev', preproc, params.min_freq)
+		snli_test = get_dev_test_with_expl(params.esnli_path, 'test', preproc, params.min_freq)
+		snli_sentences = snli_train['s1'] + snli_train['s2'] + snli_train['expl_1'] + snli_dev['s1'] + snli_dev['s2'] + snli_dev['expl_1'] + snli_dev['expl_2'] + snli_dev['expl_3'] + snli_test['s1'] + snli_test['s2'] + snli_test['expl_1'] + snli_test['expl_2'] + snli_test['expl_3']
+		word_vec = build_vocab(snli_sentences, GLOVE_PATH)
+		for split in ['s1', 's2', 'expl_1', 'expl_2', 'expl_3']:
+			for data_type in ['snli_dev', 'snli_test']:
+				eval(data_type)[split] = np.array([['<s>'] +
+					[word for word in sent.split() if word in word_vec] +
+					['</s>'] for sent in eval(data_type)[split]])
 
 
-	
-	# SNLI
-	test_acc, test_bleu_score, test_ppl = evaluate_snli_final(esnli_net, expl_to_labels_net, criterion_expl, 'snli_test', snli_test, snli_dev_no_unk, snli_test_no_unk, word_vec, word_index, batch_size, print_every, current_run_dir, visualize=True)
-	#final_dev_acc, dev_bleu_score, final_dev_ppl = evaluate_snli_final(esnli_net, expl_to_labels_net, criterion_expl, 'snli_dev', snli_dev, snli_dev_no_unk, snli_test_no_unk, word_vec, word_index, batch_size, print_every, current_run_dir, visualize=False)
-	
-	final_dev_acc, dev_bleu_score, final_dev_ppl = 0, 0, 0
-	headers.append('SNLI-acc')
-	row_dev.append(final_dev_acc)
-	row_test.append(test_acc)
 
-	headers.append('SNLI-ppl')
-	row_dev.append(final_dev_ppl)
-	row_test.append(test_ppl)
+		# SNLI
+		test_acc, test_bleu_score, test_ppl = evaluate_snli_final(esnli_net, expl_to_labels_net, criterion_expl, 'snli_test', snli_test, snli_dev_no_unk, snli_test_no_unk, word_vec, word_index, batch_size, print_every, current_run_dir, visualize=True)
+		#final_dev_acc, dev_bleu_score, final_dev_ppl = evaluate_snli_final(esnli_net, expl_to_labels_net, criterion_expl, 'snli_dev', snli_dev, snli_dev_no_unk, snli_test_no_unk, word_vec, word_index, batch_size, print_every, current_run_dir, visualize=False)
 
-	headers.append('SNLI-BLEU')
-	row_dev.append(dev_bleu_score)
-	row_test.append(test_bleu_score)
-
-
-	writer.writerow(headers)
-	writer.writerow(row_dev)
-	writer.writerow(row_test)
-	dev_f.close()
+		final_dev_acc, dev_bleu_score, final_dev_ppl = 0, 0, 0
+		headers = ['set', 'SNLI-acc', 'SNLI-ppl', 'SNLI-BLEU']
+		row_dev = ['dev', final_dev_acc, final_dev_ppl, dev_bleu_score]
+		row_test = ['test', test_acc, test_ppl, test_bleu_score]
+		writer.writerow(headers)
+		writer.writerow(row_dev)
+		writer.writerow(row_test)
 
 

@@ -13,10 +13,7 @@ from mutils import get_keys_from_vals, assert_sizes, get_key_from_val
 from data_label_in_expl import NLI_DIC_LABELS
 
 def array_all_true(arr):
-	for i in arr:
-		if i == False:
-			return False
-	return True
+	return all(i != False for i in arr)
 
 """
 Decoder for the explanation
@@ -24,7 +21,7 @@ Decoder for the explanation
 class Decoder(nn.Module):
 	def __init__(self, config):
 		super(Decoder, self).__init__()
-		
+
 		self.decoder_type = config['decoder_type']
 		self.word_emb_dim = config['word_emb_dim']
 		self.dec_rnn_dim = config['dec_rnn_dim']
@@ -41,30 +38,29 @@ class Decoder(nn.Module):
 		self.smaller_inp_dec_dim = config['smaller_inp_dec_dim']
 		self.use_diff_prod_sent_embed = config['use_diff_prod_sent_embed']
 		self.only_diff_prod = config['only_diff_prod']
-		
+
 
 		self.sent_dim = 2 * config['enc_rnn_dim']
 		if config['encoder_type'] in ["ConvNetEncoder", "InnerAttentionMILAEncoder"]:
-			self.sent_dim = 4 * self.sent_dim 
+			self.sent_dim = 4 * self.sent_dim
 		if config['encoder_type'] == "LSTMEncoder":
 			self.sent_dim = self.sent_dim / 2 
 
 		assert self.sent_dim == 4096
 
-		self.context_mutiply_coef = 2
-		if self.use_diff_prod_sent_embed:
-			self.context_mutiply_coef = 4
-			
+		self.context_mutiply_coef = 4 if self.use_diff_prod_sent_embed else 2
 		# initialization only uses the premise and hypothesis embeddings but not the diff_product
 		if self.use_init and 2 * self.sent_dim != self.dec_rnn_dim:
 			self.proj_init = nn.Linear(2 * self.sent_dim, self.dec_rnn_dim)
 
 		self.inp_dec_dim = self.dec_rnn_dim
 		if self.use_smaller_inp_dec_dim:
-			assert self.smaller_inp_dec_dim < self.dec_rnn_dim, str(self.smaller_inp_dec_dim) + " should be smaller than " + str(self.dec_rnn_dim)
+			assert (
+				self.smaller_inp_dec_dim < self.dec_rnn_dim
+			), f"{str(self.smaller_inp_dec_dim)} should be smaller than {str(self.dec_rnn_dim)}"
 			self.inp_dec_dim = self.smaller_inp_dec_dim
 		self.proj_inp_dec = nn.Linear(self.context_mutiply_coef * self.sent_dim + self.word_emb_dim, self.inp_dec_dim)
-		
+
 		if self.decoder_type == 'gru':
 			self.decoder_rnn = nn.GRU(self.inp_dec_dim, self.dec_rnn_dim, self.n_layers_dec, bidirectional=False, dropout=self.dpout_dec)
 		else: # 'lstm'
@@ -80,14 +76,14 @@ class Decoder(nn.Module):
 	def forward(self, expl, s1_embed, s2_embed, mode, classif_lbl):
 		# expl: Variable(seqlen x bsize x worddim)
 		# s1/2_embed: Variable(bsize x sent_dim)
-		
+
 		assert mode in ['forloop', 'teacher'], mode
 
 		batch_size = expl.size(1)
 		assert_sizes(s1_embed, 2, [batch_size, self.sent_dim])
 		assert_sizes(s2_embed, 2, [batch_size, self.sent_dim])
 		assert_sizes(expl, 3, [expl.size(0), batch_size, self.word_emb_dim])
-		
+
 		context = torch.cat([s1_embed, s2_embed], 1).unsqueeze(0)
 		if self.use_diff_prod_sent_embed:
 			context = torch.cat([s1_embed, s2_embed, torch.abs(s1_embed - s2_embed), s1_embed * s2_embed], 1).unsqueeze(0)
@@ -111,7 +107,7 @@ class Decoder(nn.Module):
 			init_state = (init_0, init_0)
 
 		self.decoder_rnn.flatten_parameters()
-		
+
 		if mode == "teacher":
 			input_dec = torch.cat([expl, context.expand(expl.size(0), batch_size, self.context_mutiply_coef * self.sent_dim)], 2)
 			input_dec = self.proj_inp_dec(nn.Dropout(self.dpout_dec)(input_dec))
@@ -122,26 +118,26 @@ class Decoder(nn.Module):
 			if not self.use_vocab_proj:
 				return self.vocab_layer(dp_out)
 			return self.vocab_layer(self.vocab_proj(dp_out))
-		
+
 		else:
 			assert classif_lbl is not None
 			assert_sizes(classif_lbl, 1, [batch_size])
 			pred_expls = []
 			finished = []
-			for i in range(batch_size):
+			for _ in range(batch_size):
 				pred_expls.append("")
 				finished.append(False)
-			
+
 			dec_inp_t = torch.cat([expl[0, :, :].unsqueeze(0), context], 2)
 			dec_inp_t = self.proj_inp_dec(dec_inp_t)
-			
+
 			ht = init_state
 			t = 0
 			while t < self.max_T_decoder and not array_all_true(finished):
 				t += 1
 				word_embed = torch.zeros(1, batch_size, self.word_emb_dim)
 				assert_sizes(dec_inp_t, 3, [1, batch_size, self.inp_dec_dim])
-				dec_out_t, ht = self.decoder_rnn(dec_inp_t, ht) 
+				dec_out_t, ht = self.decoder_rnn(dec_inp_t, ht)
 				assert_sizes(dec_out_t, 3, [1, batch_size, self.dec_rnn_dim])
 				if self.use_vocab_proj:
 					out_t_proj = self.vocab_proj(dec_out_t)
@@ -152,12 +148,14 @@ class Decoder(nn.Module):
 				i_t = torch.max(out_t, 2)[1]
 				assert_sizes(i_t, 2, [1, batch_size])
 				pred_words = get_keys_from_vals(i_t, self.word_index) # array of bs of words at current timestep
-				assert len(pred_words) == batch_size, "pred_words " + str(len(pred_words)) + " batch_size " + str(batch_size)
+				assert (
+					len(pred_words) == batch_size
+				), f"pred_words {len(pred_words)} batch_size {str(batch_size)}"
 				for i in range(batch_size):
 					if pred_words[i] == '</s>':
 						finished[i] = True
 					if not finished[i]:
-						pred_expls[i] += " " + pred_words[i]
+						pred_expls[i] += f" {pred_words[i]}"
 					if t > 1:
 						#print "self.word_vec[pred_words[i]]", type(self.word_vec[pred_words[i]]) 
 						word_embed[0, i] = torch.from_numpy(self.word_vec[pred_words[i]])
@@ -206,21 +204,19 @@ class BLSTMEncoder(nn.Module):
 		idx_unsort = np.argsort(idx_sort)
 
 		idx_sort = torch.from_numpy(idx_sort).cuda() if self.is_cuda() \
-			else torch.from_numpy(idx_sort)
+				else torch.from_numpy(idx_sort)
 		sent = sent.index_select(1, Variable(idx_sort))
 
 		# Handling padding in Recurrent Networks
 		sent_packed = nn.utils.rnn.pack_padded_sequence(sent, sent_len)
 		self.enc_lstm.flatten_parameters()
 		sent_output = self.enc_lstm(sent_packed)[0]  # seqlen x batch x 2*nhid
-		padding_value = 0.0
-		if self.pool_type == "max":
-			padding_value = -100
+		padding_value = -100 if self.pool_type == "max" else 0.0
 		sent_output = nn.utils.rnn.pad_packed_sequence(sent_output, False, padding_value)[0]
 
 		# Un-sort by length
 		idx_unsort = torch.from_numpy(idx_unsort).cuda() if self.is_cuda() \
-			else torch.from_numpy(idx_unsort)
+				else torch.from_numpy(idx_unsort)
 		sent_output = sent_output.index_select(1, Variable(idx_unsort))
 		if self.relu_before_pool:
 			sent_output = nn.ReLU()(sent_output)
@@ -235,7 +231,7 @@ class BLSTMEncoder(nn.Module):
 			emb = torch.max(sent_output, 0)[0]
 			if emb.ndimension() == 3:
 				emb = emb.squeeze(0)
-				assert emb.ndimension() == 2, "emb.ndimension()=" + str(emb.ndimension())
+				assert emb.ndimension() == 2, f"emb.ndimension()={str(emb.ndimension())}"
 
 		return emb
 
@@ -287,7 +283,7 @@ class BLSTMEncoder(nn.Module):
 					if word in ['<s>', '</s>']:
 						word_vec[word] = np.fromstring(vec, sep=' ')
 
-				if k > K and all([w in word_vec for w in ['<s>', '</s>']]):
+				if k > K and all(w in word_vec for w in ['<s>', '</s>']):
 					break
 		return word_vec
 
@@ -492,5 +488,4 @@ class eSNLINet(nn.Module):
 		return out_expl, out_label
 
 	def encode(self, s1):
-		emb = self.encoder(s1)
-		return emb
+		return self.encoder(s1)

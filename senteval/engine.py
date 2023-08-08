@@ -57,36 +57,46 @@ class SE(object):
             return self.results
 
         tpath = self.params.task_path
-        assert name in self.list_tasks, str(name) + ' not in ' + str(self.list_tasks)
+        assert name in self.list_tasks, f'{str(name)} not in {str(self.list_tasks)}'
         if name == 'CR':
-            self.evaluation = CREval(tpath + '/CR', seed=self.params.seed)
+            self.evaluation = CREval(f'{tpath}/CR', seed=self.params.seed)
         elif name == 'MR':
-            self.evaluation = MREval(tpath + '/MR', seed=self.params.seed)
+            self.evaluation = MREval(f'{tpath}/MR', seed=self.params.seed)
         elif name == 'MPQA':
-            self.evaluation = MPQAEval(tpath + '/MPQA', seed=self.params.seed)
+            self.evaluation = MPQAEval(f'{tpath}/MPQA', seed=self.params.seed)
         elif name == 'SUBJ':
-            self.evaluation = SUBJEval(tpath + '/SUBJ', seed=self.params.seed)
+            self.evaluation = SUBJEval(f'{tpath}/SUBJ', seed=self.params.seed)
         elif name == 'SST2':
-            self.evaluation = SSTEval(tpath + '/SST/binary', nclasses=2, seed=self.params.seed)
+            self.evaluation = SSTEval(
+                f'{tpath}/SST/binary', nclasses=2, seed=self.params.seed
+            )
         elif name == 'SST5':
-            self.evaluation = SSTEval(tpath + '/SST/fine', nclasses=5, seed=self.params.seed)
+            self.evaluation = SSTEval(
+                f'{tpath}/SST/fine', nclasses=5, seed=self.params.seed
+            )
         elif name == 'TREC':
-            self.evaluation = TRECEval(tpath + '/TREC', seed=self.params.seed)
+            self.evaluation = TRECEval(f'{tpath}/TREC', seed=self.params.seed)
         elif name == 'MRPC':
-            self.evaluation = MRPCEval(tpath + '/MRPC', seed=self.params.seed)
+            self.evaluation = MRPCEval(f'{tpath}/MRPC', seed=self.params.seed)
         elif name == 'SICKRelatedness':
-            self.evaluation = SICKRelatednessEval(tpath + '/SICK', seed=self.params.seed)
+            self.evaluation = SICKRelatednessEval(f'{tpath}/SICK', seed=self.params.seed)
         elif name == 'STSBenchmark':
-            self.evaluation = STSBenchmarkEval(tpath + '/STS/STSBenchmark', seed=self.params.seed)
+            self.evaluation = STSBenchmarkEval(
+                f'{tpath}/STS/STSBenchmark', seed=self.params.seed
+            )
         elif name == 'SICKEntailment':
-            self.evaluation = SICKEntailmentEval(tpath + '/SICK', seed=self.params.seed)
+            self.evaluation = SICKEntailmentEval(f'{tpath}/SICK', seed=self.params.seed)
         elif name == 'SNLI':
-            self.evaluation = SNLIEval(tpath + '/SNLI', seed=self.params.seed)
+            self.evaluation = SNLIEval(f'{tpath}/SNLI', seed=self.params.seed)
         elif name in ['STS12', 'STS13', 'STS14', 'STS15', 'STS16']:
-            fpath = name + '-en-test'
-            self.evaluation = eval(name + 'Eval')(tpath + '/STS/' + fpath, seed=self.params.seed)
+            fpath = f'{name}-en-test'
+            self.evaluation = eval(f'{name}Eval')(
+                f'{tpath}/STS/{fpath}', seed=self.params.seed
+            )
         elif name == 'ImageCaptionRetrieval':
-            self.evaluation = ImageCaptionRetrievalEval(tpath + '/COCO', seed=self.params.seed)
+            self.evaluation = ImageCaptionRetrievalEval(
+                f'{tpath}/COCO', seed=self.params.seed
+            )
 
         self.params.current_task = name
         self.evaluation.do_prepare(self.params, self.prepare)

@@ -147,9 +147,9 @@ parser.add_argument("--pool_type", type=str, default='max', help="max or mean")
 
 # alpha
 parser.add_argument("--alpha", type=float, default=0.1, help="alpha * lbl + (1-alpha) * expl ; use 1 for training just the classif and 0 for training just explanations")
-parser.add_argument("--annealing_alpha", action='store_true', dest='annealing_alpha', help="it starts with the alpha above and increases it by 0.1 every epoch until it reaches 1") 
-parser.add_argument("--annealing_rate", type=float, default=0.1) 
-parser.add_argument("--annealing_max", type=float, default=0.9) 
+parser.add_argument("--annealing_alpha", action='store_true', dest='annealing_alpha', help="it starts with the alpha above and increases it by 0.1 every epoch until it reaches 1")
+parser.add_argument("--annealing_rate", type=float, default=0.1)
+parser.add_argument("--annealing_max", type=float, default=0.9)
 parser.add_argument("--lmbda", type=int, default=1, help='multiply with both losses to see the efect of alpha=0.5') 
 
 parser.add_argument("--annealing_down", action='store_true', dest='annealing_down')
@@ -177,7 +177,7 @@ streamtologger.redirect(target=os.path.join(params.current_run_dir, time.strftim
 """
 ALL DATA, some will only be needed for eval for we want to build glove vocab once
 """
-preproc = params.preproc_expl + "_maxtokens_" + str(params.max_tokens) + "_"
+preproc = f"{params.preproc_expl}_maxtokens_{str(params.max_tokens)}_"
 train_path = os.path.join('dataset', params.train_set)
 train = get_train(train_path, preproc, params.min_freq, params.n_train)
 snli_dev = get_dev_test_with_expl(params.esnli_path, 'dev', preproc, params.min_freq)
@@ -219,9 +219,8 @@ eval_all(att_net, expl_net, criterion_expl, params)
 
 txt_file = 'DONE_eval.txt'
 file = os.path.join(params.current_run_dir, txt_file)
-f = open(file,'w')
-f.write("DONE")
-f.close()
+with open(file,'w') as f:
+	f.write("DONE")
 
 
 
